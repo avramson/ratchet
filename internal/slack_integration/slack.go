@@ -92,19 +92,25 @@ func New(ctx context.Context, c Config, h handler) (Integration, error) {
 }
 
 func (b *integration) Run(ctx context.Context) error {
+	slog.InfoContext(ctx, "Slack integration starting event handler goroutine")
 	go func() {
+		slog.InfoContext(ctx, "Slack event handler goroutine started, waiting for events")
 		for {
 			select {
 			case <-ctx.Done():
+				slog.InfoContext(ctx, "Slack event handler context cancelled, stopping")
 				return
 			case evt := <-b.client.Events:
+				slog.DebugContext(ctx, "Received Slack event", "event_type", evt.Type)
 				switch evt.Type {
 				case socketmode.EventTypeEventsAPI:
 					eventsAPI, ok := evt.Data.(slackevents.EventsAPIEvent)
 					if !ok {
+						slog.WarnContext(ctx, "Failed to cast event to EventsAPIEvent")
 						continue
 					}
 
+					slog.DebugContext(ctx, "Processing EventsAPI event", "api_event_type", eventsAPI.Type)
 					if err := b.handleEventAPI(ctx, eventsAPI); err != nil {
 						slog.ErrorContext(ctx, "handling event", "error", err)
 					}
@@ -115,12 +121,29 @@ func (b *integration) Run(ctx context.Context) error {
 							"envelope_id", evt.Request.EnvelopeID,
 						)
 					}
+				case socketmode.EventTypeConnecting:
+					slog.InfoContext(ctx, "Slack socket connecting")
+				case socketmode.EventTypeConnectionError:
+					slog.ErrorContext(ctx, "Slack socket connection error", "data", evt.Data)
+				case socketmode.EventTypeConnected:
+					slog.InfoContext(ctx, "Slack socket connected successfully")
+				case socketmode.EventTypeDisconnect:
+					slog.WarnContext(ctx, "Slack socket disconnected")
+				default:
+					slog.DebugContext(ctx, "unhandled event type",
+						"type", evt.Type,
+					)
 				}
 			}
 		}
 	}()
 
-	return b.client.RunContext(ctx)
+	slog.InfoContext(ctx, "Starting Slack socket mode client")
+	if err := b.client.RunContext(ctx); err != nil {
+		return fmt.Errorf("socket mode client error: %w", err)
+	}
+	slog.InfoContext(ctx, "Slack socket mode client stopped")
+	return nil
 }
 
 func (b *integration) handleEventAPI(ctx context.Context, event slackevents.EventsAPIEvent) error {

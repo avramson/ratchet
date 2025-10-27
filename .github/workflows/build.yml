@@ -37,7 +37,7 @@ jobs:
         run: |
           go generate ./...
           go tool sqlc generate -f ./internal/storage/sqlc.yml
-          go tool goimports -local=github.com/dynoinc/ratchet -w .
+          go tool goimports -local=github.com/avramson/ratchet -w .
           git diff --exit-code
 
       - name: Go Tidy
