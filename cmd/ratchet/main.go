@@ -412,11 +412,17 @@ func main() {
 	})
 	wg.Go(func() error {
 		if c.DevMode {
+			slog.InfoContext(ctx, "Skipping Slack integration in dev mode")
 			return nil
 		}
 
 		slog.InfoContext(ctx, "Starting Slack integration", "bot_user_id", slackIntegration.BotUserID())
-		return slackIntegration.Run(ctx)
+		if err := slackIntegration.Run(ctx); err != nil {
+			slog.ErrorContext(ctx, "Slack integration error", "error", err)
+			return fmt.Errorf("slack integration failed: %w", err)
+		}
+		slog.InfoContext(ctx, "Slack integration stopped")
+		return nil
 	})
 	wg.Go(func() error {
 		c := make(chan os.Signal, 1)
