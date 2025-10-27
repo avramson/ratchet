@@ -8,10 +8,9 @@ package schema
 import (
 	"context"
 
+	dto "github.com/dynoinc/ratchet/internal/storage/schema/dto"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pgvector/pgvector-go"
-
-	dto "github.com/dynoinc/ratchet/internal/storage/schema/dto"
 )
 
 const addMessage = `-- name: AddMessage :one

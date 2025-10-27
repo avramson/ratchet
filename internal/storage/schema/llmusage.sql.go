@@ -8,9 +8,8 @@ package schema
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	dto "github.com/dynoinc/ratchet/internal/storage/schema/dto"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addLLMUsage = `-- name: AddLLMUsage :one
