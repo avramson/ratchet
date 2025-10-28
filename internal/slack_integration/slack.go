@@ -94,19 +94,31 @@ func New(ctx context.Context, c Config, h handler) (Integration, error) {
 func (b *integration) Run(ctx context.Context) error {
 	slog.InfoContext(ctx, "Slack integration starting event handler goroutine")
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.ErrorContext(ctx, "Slack event handler panic recovered", "panic", r)
+			}
+			slog.InfoContext(ctx, "Slack event handler goroutine exited")
+		}()
+
 		slog.InfoContext(ctx, "Slack event handler goroutine started, waiting for events")
 		for {
 			select {
 			case <-ctx.Done():
 				slog.InfoContext(ctx, "Slack event handler context cancelled, stopping")
 				return
-			case evt := <-b.client.Events:
+			case evt, ok := <-b.client.Events:
+				if !ok {
+					slog.WarnContext(ctx, "Slack events channel closed, stopping")
+					return
+				}
+
 				slog.DebugContext(ctx, "Received Slack event", "event_type", evt.Type)
 				switch evt.Type {
 				case socketmode.EventTypeEventsAPI:
 					eventsAPI, ok := evt.Data.(slackevents.EventsAPIEvent)
 					if !ok {
-						slog.WarnContext(ctx, "Failed to cast event to EventsAPIEvent")
+						slog.WarnContext(ctx, "Failed to cast to EventsAPIEvent", "data_type", fmt.Sprintf("%T", evt.Data))
 						continue
 					}
 
@@ -129,9 +141,12 @@ func (b *integration) Run(ctx context.Context) error {
 					slog.InfoContext(ctx, "Slack socket connected successfully")
 				case socketmode.EventTypeDisconnect:
 					slog.WarnContext(ctx, "Slack socket disconnected")
+				case socketmode.EventTypeHello:
+					slog.InfoContext(ctx, "Slack hello received")
 				default:
-					slog.DebugContext(ctx, "unhandled event type",
+					slog.DebugContext(ctx, "Unhandled event type",
 						"type", evt.Type,
+						"data", evt.Data,
 					)
 				}
 			}
